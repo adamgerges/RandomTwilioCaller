@@ -12,7 +12,7 @@ This project consists of a Python script that uses Twilio's API to dial a predet
 
 1. Clone the repository:
 ```bash
-git clone https://yourrepositorylink.git
+git clone https://github.com/adamgerges/RandomTwilioCaller
 ```
 
 2. Install the required packages:
