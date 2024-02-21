@@ -1,38 +1,57 @@
 import random
+import os
+import re
+from datetime import datetime
 from twilio.rest import Client
+from dotenv import load_dotenv
 
-# Your Twilio account SID and Auth Token
-ACCOUNT_SID = 'Twilio_Account_SID'
-AUTH_TOKEN = 'Twilio_Auth_Token'
+# Explicitly load environment variables and validate their presence
+load_dotenv()
 
-# Initialize Twilio client
+def validate_env_variables():
+    required_vars = ['TWILIO_ACCOUNT_SID', 'TWILIO_AUTH_TOKEN', 'TWILIO_PHONE_NUMBERS']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    if missing_vars:
+        raise EnvironmentError(f"Missing required environment variables: {', '.join(missing_vars)}")
+
+validate_env_variables()
+
+ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
 client = Client(ACCOUNT_SID, AUTH_TOKEN)
+twilio_phone_numbers_list = os.getenv('TWILIO_PHONE_NUMBERS').split(',')
 
-# List of Twilio phone numbers you might dial from
-twilio_phone_numbers_list = [
-    '+17781112222',
-    '+17781113333',
-    '+17781114444',
-    '+17781115555',
-    '+17781116666',
-    '+17781117777',
-    '+17781118888',
-    # ... add as many as you have
-]
+# Enhanced logging to include more details
+log_file_path = 'call_attempts.log'
 
-# The phone number you're dialing to
-to_phone_number = '+17781110000'
+def format_phone_number(number):
+    """Ensure phone numbers are in E.164 format."""
+    clean_number = re.sub(r'[^\d+]', '', number)
+    return '+1' + clean_number if not clean_number.startswith('+') else clean_number
 
-# Select a random Twilio phone number from the list to dial from
-from_phone_number = random.choice(twilio_phone_numbers_list)
+def log_call_attempt(from_phone_number, to_phone_number):
+    """Log call attempts with timestamps, from and to numbers."""
+    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(f"{current_time}, From: {from_phone_number}, To: {to_phone_number}\n")
 
-# Dial the number and say a message
-call = client.calls.create(
-    twiml='<Response><Say>Hello! This is the message that will be read out when the caller picks up.</Say></Response>',
-    to=to_phone_number,
-    from_=from_phone_number
-)
+def dial_numbers():
+    """Iterate over destination numbers and initiate calls."""
+    with open('destination_numbers.txt', 'r') as file:
+        destination_numbers = [format_phone_number(line.strip()) for line in file]
 
-print(f"Call initiated from {from_phone_number} to {to_phone_number} with SID: {call.sid}")
+    for to_phone_number in destination_numbers:
+        from_phone_number = random.choice(twilio_phone_numbers_list)
+        try:
+            call = client.calls.create(
+                twiml='<Response><Say>Hello! This is a message from your script.</Say></Response>',
+                to=to_phone_number,
+                from_=from_phone_number
+            )
+            print(f"Call initiated from {from_phone_number} to {to_phone_number} with SID: {call.sid}")
+            log_call_attempt(from_phone_number, to_phone_number)
+        except Exception as e:
+            print(f"Error making call from {from_phone_number} to {to_phone_number}: {e}")
 
-
+if __name__ == "__main__":
+    dial_numbers()
